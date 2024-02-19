@@ -20,11 +20,11 @@ import pygments.lexers
 import pygments.token
 import pygments.util
 
-import pygount.common
-import pygount.lexers
-import pygount.xmldialect
-from pygount.common import deprecated
-from pygount.git_storage import GitStorage, git_remote_url_and_revision_if_any
+import pystats.common
+import pystats.lexers
+import pystats.xmldialect
+from pystats.common import deprecated
+from pystats.git_storage import GitStorage, git_remote_url_and_revision_if_any
 
 # Attempt to import chardet.
 try:
@@ -72,7 +72,7 @@ class SourceState(Enum):
 
 #: Default patterns for regular expressions to detect generated code.
 #: The '(?i)' indicates that the patterns are case-insensitive.
-DEFAULT_GENERATED_PATTERNS_TEXT = pygount.common.REGEX_PATTERN_PREFIX + ", ".join(
+DEFAULT_GENERATED_PATTERNS_TEXT = pystats.common.REGEX_PATTERN_PREFIX + ", ".join(
     [
         r"(?i).*automatically generated",
         r"(?i).*do not edit",
@@ -85,7 +85,7 @@ DEFAULT_GENERATED_PATTERNS_TEXT = pygount.common.REGEX_PATTERN_PREFIX + ", ".joi
 #: Default glob patterns for file names not to analyze.
 DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT = ", ".join([".*", "*~"])
 
-_log = logging.getLogger("pygount")
+_log = logging.getLogger("pystats")
 
 _MARK_TO_NAME_MAP = (("c", "code"), ("d", "documentation"), ("e", "empty"), ("s", "string"))
 _BOM_TO_ENCODING_MAP = collections.OrderedDict(
@@ -132,12 +132,12 @@ _PLAIN_TEXT_NAME_REGEX = re.compile(_PLAIN_TEXT_PATTERN, re.IGNORECASE)
 
 #: Mapping for file suffixes to lexers for which pygments offers no official one.
 _SUFFIX_TO_FALLBACK_LEXER_MAP = {
-    "fex": pygount.lexers.MinimalisticWebFocusLexer(),
-    "idl": pygount.lexers.IdlLexer(),
-    "m4": pygount.lexers.MinimalisticM4Lexer(),
-    "txt": pygount.lexers.PlainTextLexer(),
-    "vbe": pygount.lexers.MinimalisticVBScriptLexer(),
-    "vbs": pygount.lexers.MinimalisticVBScriptLexer(),
+    "fex": pystats.lexers.MinimalisticWebFocusLexer(),
+    "idl": pystats.lexers.IdlLexer(),
+    "m4": pystats.lexers.MinimalisticM4Lexer(),
+    "txt": pystats.lexers.PlainTextLexer(),
+    "vbe": pystats.lexers.MinimalisticVBScriptLexer(),
+    "vbs": pystats.lexers.MinimalisticVBScriptLexer(),
 }
 for _oracle_suffix in ("pck", "pkb", "pks", "pls"):
     _SUFFIX_TO_FALLBACK_LEXER_MAP[_oracle_suffix] = pygments.lexers.get_lexer_by_name("plpgsql")
@@ -259,7 +259,7 @@ class SourceAnalysis:
         group: str,
         encoding: str = "automatic",
         fallback_encoding: str = "cp1252",
-        generated_regexes=pygount.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
+        generated_regexes=pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
         duplicate_pool: Optional[DuplicatePool] = None,
         file_handle: Optional[IOBase] = None,
     ) -> "SourceAnalysis":
@@ -323,7 +323,7 @@ class SourceAnalysis:
                 lexer = guess_lexer(source_path, source_code)
                 assert lexer is not None
         if (result is None) and (len(generated_regexes) != 0):
-            number_line_and_regex = matching_number_line_and_regex(pygount.common.lines(source_code), generated_regexes)
+            number_line_and_regex = matching_number_line_and_regex(pystats.common.lines(source_code), generated_regexes)
             if number_line_and_regex is not None:
                 number, _, regex = number_line_and_regex
                 message = f"line {number} matches {regex}"
@@ -334,7 +334,7 @@ class SourceAnalysis:
             assert source_code is not None
             language = lexer.name
             if ("xml" in language.lower()) or (language == "Genshi"):
-                dialect = pygount.xmldialect.xml_dialect(source_path, source_code)
+                dialect = pystats.xmldialect.xml_dialect(source_path, source_code)
                 if dialect is not None:
                     language = dialect
             _log.info("%s: analyze as %s using encoding %s", source_path, language, encoding)
@@ -490,16 +490,16 @@ class SourceScanner:
         name_to_skip=None,
     ):
         self._source_patterns = source_patterns
-        self._suffixes = pygount.common.regexes_from(suffixes)
+        self._suffixes = pystats.common.regexes_from(suffixes)
         self._folder_regexps_to_skip = (
             folders_to_skip
             if folders_to_skip is not None
-            else pygount.common.regexes_from(DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT)
+            else pystats.common.regexes_from(DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT)
         )
         self._name_regexps_to_skip = (
             name_to_skip
             if folders_to_skip is not None
-            else pygount.common.regexes_from(DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT)
+            else pystats.common.regexes_from(DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT)
         )
         self._git_storages = []
 
@@ -528,7 +528,7 @@ class SourceScanner:
 
     @folder_regexps_to_skip.setter
     def folder_regexps_to_skip(self, regexps_or_pattern_text):
-        self._folder_regexps_to_skip.append = pygount.common.regexes_from(
+        self._folder_regexps_to_skip.append = pystats.common.regexes_from(
             regexps_or_pattern_text, self.folder_regexps_to_skip
         )
 
@@ -538,7 +538,7 @@ class SourceScanner:
 
     @name_regexps_to_skip.setter
     def name_regexps_to_skip(self, regexps_or_pattern_text):
-        self._name_regexps_to_skip = pygount.common.regexes_from(regexps_or_pattern_text, self.name_regexps_to_skip)
+        self._name_regexps_to_skip = pystats.common.regexes_from(regexps_or_pattern_text, self.name_regexps_to_skip)
 
     def _is_path_to_skip(self, name, is_folder) -> bool:
         assert os.sep not in name, "name=%r" % name
@@ -728,7 +728,7 @@ def _line_parts(lexer: pygments.lexer.Lexer, text: str) -> Iterator[Set[str]]:
 
 def check_file_handle_is_seekable(file_handle: Optional[Union[BufferedIOBase, RawIOBase]], source_path: str):
     if not file_handle.seekable():
-        raise pygount.Error(f"cannot determine encoding: file handle must be seekable: {source_path}")
+        raise pystats.Error(f"cannot determine encoding: file handle must be seekable: {source_path}")
 
 
 def encoding_for(
@@ -873,7 +873,7 @@ def has_lexer(source_path: str) -> bool:
 
 def guess_lexer(source_path: str, text: str) -> pygments.lexer.Lexer:
     if is_plain_text(source_path):
-        result = pygount.lexers.PlainTextLexer()
+        result = pystats.lexers.PlainTextLexer()
     else:
         try:
             result = pygments.lexers.guess_lexer_for_filename(source_path, text)
@@ -889,7 +889,7 @@ def source_analysis(
     group,
     encoding="automatic",
     fallback_encoding="cp1252",
-    generated_regexes=pygount.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
+    generated_regexes=pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
     duplicate_pool: Optional[DuplicatePool] = None,
 ):
     return SourceAnalysis.from_file(source_path, group, encoding, fallback_encoding, generated_regexes, duplicate_pool)

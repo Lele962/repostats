@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 from rich.console import Console
 from rich.table import Table
 
-import pygount
+import pystats
 
 from . import SourceAnalysis
 from .summary import ProjectSummary
@@ -212,7 +212,6 @@ class JsonWriter(BaseWriter):
         super().close()
         json_map = {
             "formatVersion": JSON_FORMAT_VERSION,
-            "pygountVersion": pygount.__version__,
             "files": self.source_analyses,
             "languages": [
                 {

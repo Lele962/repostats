@@ -3,7 +3,7 @@ Tests for function to obtain the language dialect used by XML source code.
 """
 # Copyright (c) 2016-2023, Thomas Aglassinger.
 # All rights reserved. Distributed under the BSD License.
-import pygount.xmldialect
+import pystats.xmldialect
 
 EXAMPLE_ANT_CODE = """<project name="hello">
     <target name="hello">
@@ -48,16 +48,16 @@ print('Hello World!')
 
 
 def test_can_detect_ant():
-    assert pygount.xmldialect.xml_dialect("<ant>", EXAMPLE_ANT_CODE) == "Ant"
+    assert pystats.xmldialect.xml_dialect("<ant>", EXAMPLE_ANT_CODE) == "Ant"
 
 
 def test_can_detect_maven():
-    assert pygount.xmldialect.xml_dialect("<maven>", _EXAMPLE_POM_CODE) == "Maven"
+    assert pystats.xmldialect.xml_dialect("<maven>", _EXAMPLE_POM_CODE) == "Maven"
 
 
 def test_can_ignore_broken_xml():
-    assert pygount.xmldialect.xml_dialect("<broken>", "<some></other>") is None
+    assert pystats.xmldialect.xml_dialect("<broken>", "<some></other>") is None
 
 
 def test_can_detect_docbook_from_dtd():
-    assert pygount.xmldialect.xml_dialect("<docbook-dtd>", _EXAMPLE_DOCBOOK_DTD_CODE) == "DocBook XML"
+    assert pystats.xmldialect.xml_dialect("<docbook-dtd>", _EXAMPLE_DOCBOOK_DTD_CODE) == "DocBook XML"

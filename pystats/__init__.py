@@ -9,10 +9,8 @@ from .analysis import DuplicatePool, SourceAnalysis, SourceScanner, SourceState,
 from .common import Error, OptionError
 from .summary import LanguageSummary, ProjectSummary
 
-__version__ = version(__name__)
 
 __all__ = [
-    "__version__",
     "encoding_for",
     "DuplicatePool",
     "Error",

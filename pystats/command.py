@@ -8,6 +8,8 @@ import contextlib
 import logging
 import os
 import sys
+import xlrd
+import xlwt
 
 from rich.progress import Progress
 
@@ -97,9 +99,10 @@ class Command:
     """
 
     def __init__(self):
+        self._fallback_encoding = None
+        self._default_encoding = None
         self.set_encodings(_DEFAULT_ENCODING)
         self._folders_to_skip = pystats.common.regexes_from(pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT)
-        self._excel_file = None
         self._generated_regexs = pystats.common.regexes_from(pystats.analysis.DEFAULT_GENERATED_PATTERNS_TEXT)
         self._has_duplicates = False
         self._has_summary = False
@@ -107,6 +110,7 @@ class Command:
         self._names_to_skip = pystats.common.regexes_from(pystats.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT)
         self._output = _DEFAULT_OUTPUT
         self._output_format = _DEFAULT_OUTPUT_FORMAT
+        self._excel_file = None
         self._source_patterns = _DEFAULT_SOURCE_PATTERNS
         self._suffixes = pystats.common.regexes_from(_DEFAULT_SUFFIXES)
 
@@ -121,7 +125,7 @@ class Command:
             if encoding.startswith("automatic;") or encoding.startswith("chardet;"):
                 first_encoding_semicolon_index = encoding.find(";")
                 default_encoding = encoding[:first_encoding_semicolon_index]
-                fallback_encoding = encoding[first_encoding_semicolon_index + 1 :]
+                fallback_encoding = encoding[first_encoding_semicolon_index + 1:]
             else:
                 default_encoding = encoding
                 fallback_encoding = pystats.analysis.DEFAULT_FALLBACK_ENCODING
@@ -150,14 +154,6 @@ class Command:
 
     def set_folders_to_skip(self, regexes_or_patterns_text, source=None):
         self._folders_to_skip = pystats.common.regexes_from(
-            regexes_or_patterns_text, pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT, source
-        )
-    @property
-    def excel_file(self):
-        return self._excel_file
-
-    def set_excel_file(self, regexes_or_patterns_text, source=None):
-        self._excel_file = pystats.common.regexes_from(
             regexes_or_patterns_text, pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT, source
         )
 
@@ -223,6 +219,15 @@ class Command:
         assert len(self._source_patterns) >= 0
 
     @property
+    def excel_file(self):
+        return self._excel_file
+
+    def set_excel_file(self, glob_patterns_or_text, source=None):
+        self._excel_file = pystats.common.as_list(
+            glob_patterns_or_text
+        )
+
+    @property
     def suffixes(self):
         return self._suffixes
 
@@ -286,7 +291,7 @@ class Command:
             help="source files and directories to scan; can use glob patterns; default: current directory",
         )
         parser.add_argument("--verbose", "-v", action="store_true", help="explain what is being done")
-        parser.add_argument("--version", action="version", version="%(prog)s " + pystats.__version__)
+        parser.add_argument("--version", action="version", version="%(prog)s ")
         return parser
 
     def parsed_args(self, arguments):
@@ -306,7 +311,7 @@ class Command:
             if args.encoding.startswith("automatic;"):
                 first_encoding_semicolon_index = args.encoding.find(";")
                 default_encoding = args.encoding[:first_encoding_semicolon_index]
-                fallback_encoding = args.encoding[first_encoding_semicolon_index + 1 :]
+                fallback_encoding = args.encoding[first_encoding_semicolon_index + 1:]
                 encoding_to_check = ("fallback encoding", fallback_encoding)
             else:
                 default_encoding = args.encoding

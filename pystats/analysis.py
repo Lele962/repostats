@@ -43,7 +43,6 @@ DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT = ", ".join(
     [".?*", "_svn", "__pycache__"]  # Subversion hack for Windows  # Python byte code
 )
 
-
 #: Pygments token type; we need to define our own type because pygments' ``_TokenType`` is internal.
 TokenType = type(pygments.token.Token)
 
@@ -196,16 +195,16 @@ class SourceAnalysis:
     """
 
     def __init__(
-        self,
-        path: str,
-        language: str,
-        group: str,
-        code: int,
-        documentation: int,
-        empty: int,
-        string: int,
-        state: SourceState,
-        state_info: Optional[str] = None,
+            self,
+            path: str,
+            language: str,
+            group: str,
+            code: int,
+            documentation: int,
+            empty: int,
+            string: int,
+            state: SourceState,
+            state_info: Optional[str] = None,
     ):
         SourceAnalysis._check_state_info(state, state_info)
         self._path = path
@@ -220,7 +219,7 @@ class SourceAnalysis:
 
     @staticmethod
     def from_state(
-        source_path: str, group: str, state: SourceState, state_info: Optional[str] = None
+            source_path: str, group: str, state: SourceState, state_info: Optional[str] = None
     ) -> "SourceAnalysis":
         """
         Factory method to create a :py:class:`SourceAnalysis` with all counts
@@ -246,7 +245,7 @@ class SourceAnalysis:
     def _check_state_info(state: SourceState, state_info: Optional[str]):
         states_that_require_state_info = [SourceState.duplicate, SourceState.error, SourceState.generated]
         assert (state in states_that_require_state_info) == (
-            state_info is not None
+                state_info is not None
         ), "state={} and state_info={} but state_info must be specified for the following states: {}".format(
             state,
             state_info,
@@ -255,13 +254,13 @@ class SourceAnalysis:
 
     @staticmethod
     def from_file(
-        source_path: str,
-        group: str,
-        encoding: str = "automatic",
-        fallback_encoding: str = "cp1252",
-        generated_regexes=pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
-        duplicate_pool: Optional[DuplicatePool] = None,
-        file_handle: Optional[IOBase] = None,
+            source_path: str,
+            group: str,
+            encoding: str = "automatic",
+            fallback_encoding: str = "cp1252",
+            generated_regexes=None,
+            duplicate_pool: Optional[DuplicatePool] = None,
+            file_handle: Optional[IOBase] = None,
     ) -> "SourceAnalysis":
         """
         Factory method to create a :py:class:`SourceAnalysis` by analyzing
@@ -281,6 +280,8 @@ class SourceAnalysis:
           ``source_path``. If the file is open in text mode, it must be opened with the correct
           encoding.
         """
+        if generated_regexes is None:
+            generated_regexes = pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT)
         assert encoding is not None
         assert generated_regexes is not None
 
@@ -483,13 +484,15 @@ class SourceScanner:
     """
 
     def __init__(
-        self,
-        source_patterns,
-        suffixes="*",
-        folders_to_skip=None,
-        name_to_skip=None,
+            self,
+            source_patterns,
+            suffixes="*",
+            folders_to_skip=None,
+            name_to_skip=None,
+            excel_file=None
     ):
         self._source_patterns = source_patterns
+        self._excel_file = excel_file
         self._suffixes = pystats.common.regexes_from(suffixes)
         self._folder_regexps_to_skip = (
             folders_to_skip
@@ -624,7 +627,7 @@ for _language in _LANGUAGE_TO_WHITE_WORDS_MAP.keys():
 
 
 def matching_number_line_and_regex(
-    source_lines: Sequence[str], generated_regexes: Sequence[Pattern], max_line_count: int = 15
+        source_lines: Sequence[str], generated_regexes: Sequence[Pattern], max_line_count: int = 15
 ) -> Optional[Tuple[int, str, Pattern]]:
     """
     The first line and its number (starting with 0) in the source code that
@@ -674,7 +677,7 @@ def _delined_tokens(tokens: Sequence[Tuple[TokenType, str]]) -> Iterator[TokenTy
         newline_index = token_text.find("\n")
         while newline_index != -1:
             yield token_type, token_text[: newline_index + 1]
-            token_text = token_text[newline_index + 1 :]
+            token_text = token_text[newline_index + 1:]
             newline_index = token_text.find("\n")
         if token_text != "":
             yield token_type, token_text
@@ -732,10 +735,10 @@ def check_file_handle_is_seekable(file_handle: Optional[Union[BufferedIOBase, Ra
 
 
 def encoding_for(
-    source_path: str,
-    encoding: str = "automatic",
-    fallback_encoding: Optional[str] = None,
-    file_handle: Optional[Union[BufferedIOBase, RawIOBase]] = None,
+        source_path: str,
+        encoding: str = "automatic",
+        fallback_encoding: Optional[str] = None,
+        file_handle: Optional[Union[BufferedIOBase, RawIOBase]] = None,
 ) -> str:
     """
     The encoding used by the text file stored in ``source_path``.
@@ -789,7 +792,7 @@ def encoding_for(
                     result = xml_prolog_match.group("encoding")
     elif encoding == "chardet":
         assert (
-            _detector is not None
+                _detector is not None
         ), 'without chardet installed, encoding="chardet" must be rejected before calling encoding_for()'
         _detector.reset()
         if file_handle is None:
@@ -885,11 +888,11 @@ def guess_lexer(source_path: str, text: str) -> pygments.lexer.Lexer:
 
 @deprecated(f"use {SourceAnalysis.__name__}.{SourceAnalysis.from_file.__name__}")
 def source_analysis(
-    source_path,
-    group,
-    encoding="automatic",
-    fallback_encoding="cp1252",
-    generated_regexes=pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
-    duplicate_pool: Optional[DuplicatePool] = None,
+        source_path,
+        group,
+        encoding="automatic",
+        fallback_encoding="cp1252",
+        generated_regexes=pystats.common.regexes_from(DEFAULT_GENERATED_PATTERNS_TEXT),
+        duplicate_pool: Optional[DuplicatePool] = None,
 ):
     return SourceAnalysis.from_file(source_path, group, encoding, fallback_encoding, generated_regexes, duplicate_pool)

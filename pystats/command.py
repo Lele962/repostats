@@ -1,5 +1,5 @@
 """
-Command line interface for pygount.
+Command line interface for pystats.
 """
 # Copyright (c) 2016-2023, Thomas Aglassinger.
 # All rights reserved. Distributed under the BSD License.
@@ -8,19 +8,22 @@ import contextlib
 import logging
 import os
 import sys
+import xlrd
+import xlwt
 
 from rich.progress import Progress
 
-import pygount
-import pygount.analysis
-import pygount.common
-import pygount.write
+import pystats
+import pystats.analysis
+import pystats.common
+import pystats.write
 
 #: Valid formats for option --format.
 VALID_OUTPUT_FORMATS = ("cloc-xml", "json", "sloccount", "summary")
 
 _DEFAULT_ENCODING = "automatic"
 _DEFAULT_OUTPUT_FORMAT = "sloccount"
+_DEFAULT_EXCEL_FILE = ""
 _DEFAULT_OUTPUT = "STDOUT"
 _DEFAULT_SOURCE_PATTERNS = os.curdir
 _DEFAULT_SUFFIXES = "*"
@@ -57,14 +60,14 @@ _HELP_SUFFIX = '''limit analysis on files matching any suffix in comma
  "%(default)s"'''
 
 _OUTPUT_FORMAT_TO_WRITER_CLASS_MAP = {
-    "cloc-xml": pygount.write.ClocXmlWriter,
-    "json": pygount.write.JsonWriter,
-    "sloccount": pygount.write.LineWriter,
-    "summary": pygount.write.SummaryWriter,
+    "cloc-xml": pystats.write.ClocXmlWriter,
+    "json": pystats.write.JsonWriter,
+    "sloccount": pystats.write.LineWriter,
+    "summary": pystats.write.SummaryWriter,
 }
 assert set(VALID_OUTPUT_FORMATS) == set(_OUTPUT_FORMAT_TO_WRITER_CLASS_MAP.keys())
 
-_log = logging.getLogger("pygount")
+_log = logging.getLogger("pystats")
 
 
 def _check_encoding(name, encoding_to_check, alternative_encoding, source=None):
@@ -73,7 +76,7 @@ def _check_encoding(name, encoding_to_check, alternative_encoding, source=None):
     :param name: name under which the encoding is known to the user, e.g. 'default encoding'
     :param encoding_to_check: name of the encoding to check, e.g. 'utf-8'
     :param source: source where the encoding has been set, e.g. option name
-    :raise pygount.common.OptionError if ``encoding`` is not a valid Python encoding
+    :raise pystats.common.OptionError if ``encoding`` is not a valid Python encoding
     """
     assert name is not None
 
@@ -81,7 +84,7 @@ def _check_encoding(name, encoding_to_check, alternative_encoding, source=None):
         try:
             "".encode(encoding_to_check)
         except LookupError:
-            raise pygount.common.OptionError(
+            raise pystats.common.OptionError(
                 '{} is "{}" but must be "{}" or a known Python encoding'.format(
                     name, encoding_to_check, alternative_encoding
                 ),
@@ -91,27 +94,30 @@ def _check_encoding(name, encoding_to_check, alternative_encoding, source=None):
 
 class Command:
     """
-    Command interface for pygount, where options starting with defaults can
+    Command interface for pystats, where options starting with defaults can
     gradually be set and finally :py:meth:`execute()`.
     """
 
     def __init__(self):
+        self._fallback_encoding = None
+        self._default_encoding = None
         self.set_encodings(_DEFAULT_ENCODING)
-        self._folders_to_skip = pygount.common.regexes_from(pygount.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT)
-        self._generated_regexs = pygount.common.regexes_from(pygount.analysis.DEFAULT_GENERATED_PATTERNS_TEXT)
+        self._folders_to_skip = pystats.common.regexes_from(pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT)
+        self._generated_regexs = pystats.common.regexes_from(pystats.analysis.DEFAULT_GENERATED_PATTERNS_TEXT)
         self._has_duplicates = False
         self._has_summary = False
         self._is_verbose = False
-        self._names_to_skip = pygount.common.regexes_from(pygount.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT)
+        self._names_to_skip = pystats.common.regexes_from(pystats.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT)
         self._output = _DEFAULT_OUTPUT
         self._output_format = _DEFAULT_OUTPUT_FORMAT
+        self._excel_file = None
         self._source_patterns = _DEFAULT_SOURCE_PATTERNS
-        self._suffixes = pygount.common.regexes_from(_DEFAULT_SUFFIXES)
+        self._suffixes = pystats.common.regexes_from(_DEFAULT_SUFFIXES)
 
     def set_encodings(self, encoding, source=None):
         encoding_is_chardet = (encoding == "chardet") or (encoding.startswith("chardet;"))
-        if encoding_is_chardet and not pygount.analysis.has_chardet:  # pragma: no cover
-            raise pygount.common.OptionError('chardet must be installed to set default encoding to "chardet"')
+        if encoding_is_chardet and not pystats.analysis.has_chardet:  # pragma: no cover
+            raise pystats.common.OptionError('chardet must be installed to set default encoding to "chardet"')
         if encoding in ("automatic", "chardet"):
             default_encoding = encoding
             fallback_encoding = None
@@ -119,10 +125,10 @@ class Command:
             if encoding.startswith("automatic;") or encoding.startswith("chardet;"):
                 first_encoding_semicolon_index = encoding.find(";")
                 default_encoding = encoding[:first_encoding_semicolon_index]
-                fallback_encoding = encoding[first_encoding_semicolon_index + 1 :]
+                fallback_encoding = encoding[first_encoding_semicolon_index + 1:]
             else:
                 default_encoding = encoding
-                fallback_encoding = pygount.analysis.DEFAULT_FALLBACK_ENCODING
+                fallback_encoding = pystats.analysis.DEFAULT_FALLBACK_ENCODING
         self.set_default_encoding(default_encoding, source)
         self.set_fallback_encoding(fallback_encoding, source)
 
@@ -147,8 +153,8 @@ class Command:
         return self._folders_to_skip
 
     def set_folders_to_skip(self, regexes_or_patterns_text, source=None):
-        self._folders_to_skip = pygount.common.regexes_from(
-            regexes_or_patterns_text, pygount.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT, source
+        self._folders_to_skip = pystats.common.regexes_from(
+            regexes_or_patterns_text, pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT, source
         )
 
     @property
@@ -156,8 +162,8 @@ class Command:
         return self._generated_regexs
 
     def set_generated_regexps(self, regexes_or_patterns_text, source=None):
-        self._generated_regexs = pygount.common.regexes_from(
-            regexes_or_patterns_text, pygount.analysis.DEFAULT_GENERATED_PATTERNS_TEXT, source
+        self._generated_regexs = pystats.common.regexes_from(
+            regexes_or_patterns_text, pystats.analysis.DEFAULT_GENERATED_PATTERNS_TEXT, source
         )
 
     @property
@@ -179,8 +185,8 @@ class Command:
         return self._names_to_skip
 
     def set_names_to_skip(self, regexes_or_pattern_text, source=None):
-        self._names_to_skip = pygount.common.regexes_from(
-            regexes_or_pattern_text, pygount.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT, source
+        self._names_to_skip = pystats.common.regexes_from(
+            regexes_or_pattern_text, pystats.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT, source
         )
 
     @property
@@ -198,7 +204,7 @@ class Command:
     def set_output_format(self, output_format, source=None):
         assert output_format is not None
         if output_format not in VALID_OUTPUT_FORMATS:
-            raise pygount.common.OptionError(
+            raise pystats.common.OptionError(
                 f"format is {output_format} but must be one of: {VALID_OUTPUT_FORMATS}", source
             )
         self._output_format = output_format
@@ -209,8 +215,17 @@ class Command:
 
     def set_source_patterns(self, glob_patterns_or_text, source=None):
         assert glob_patterns_or_text is not None
-        self._source_patterns = pygount.common.as_list(glob_patterns_or_text)
+        self._source_patterns = pystats.common.as_list(glob_patterns_or_text)
         assert len(self._source_patterns) >= 0
+
+    @property
+    def excel_file(self):
+        return self._excel_file
+
+    def set_excel_file(self, glob_patterns_or_text, source=None):
+        self._excel_file = pystats.common.as_list(
+            glob_patterns_or_text
+        )
 
     @property
     def suffixes(self):
@@ -218,7 +233,7 @@ class Command:
 
     def set_suffixes(self, regexes_or_patterns_text, source=None):
         assert regexes_or_patterns_text is not None
-        self._suffixes = pygount.common.regexes_from(regexes_or_patterns_text, _DEFAULT_SUFFIXES, source)
+        self._suffixes = pystats.common.regexes_from(regexes_or_patterns_text, _DEFAULT_SUFFIXES, source)
 
     def argument_parser(self):
         parser = argparse.ArgumentParser(description="count source lines of code", epilog=_HELP_EPILOG)
@@ -228,8 +243,15 @@ class Command:
             "--folders-to-skip",
             "-F",
             metavar="PATTERNS",
-            default=pygount.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT,
+            default=pystats.analysis.DEFAULT_FOLDER_PATTERNS_TO_SKIP_TEXT,
             help=_HELP_FOLDERS_TO_SKIP,
+        )
+        parser.add_argument(
+            "--excel-file",
+            "-x",
+            metavar="EXCEL_FILE",
+            default=_DEFAULT_EXCEL_FILE,
+            help="Specify the path to the Excel file.",
         )
         parser.add_argument(
             "--format",
@@ -243,14 +265,14 @@ class Command:
             "--generated",
             "-g",
             metavar="PATTERNS",
-            default=pygount.analysis.DEFAULT_GENERATED_PATTERNS_TEXT,
+            default=pystats.analysis.DEFAULT_GENERATED_PATTERNS_TEXT,
             help=_HELP_GENERATED,
         )
         parser.add_argument(
             "--names-to-skip",
             "-N",
             metavar="PATTERNS",
-            default=pygount.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT,
+            default=pystats.analysis.DEFAULT_NAME_PATTERNS_TO_SKIP_TEXT,
             help=_HELP_NAMES_TO_SKIP,
         )
         parser.add_argument(
@@ -269,7 +291,7 @@ class Command:
             help="source files and directories to scan; can use glob patterns; default: current directory",
         )
         parser.add_argument("--verbose", "-v", action="store_true", help="explain what is being done")
-        parser.add_argument("--version", action="version", version="%(prog)s " + pygount.__version__)
+        parser.add_argument("--version", action="version", version="%(prog)s ")
         return parser
 
     def parsed_args(self, arguments):
@@ -281,7 +303,7 @@ class Command:
             default_encoding = args.encoding
             fallback_encoding = None
         elif args.encoding == "chardet":
-            if not pygount.analysis.has_chardet:  # pragma: no cover
+            if not pystats.analysis.has_chardet:  # pragma: no cover
                 parser.error("chardet must be installed in order to specify --encoding=chardet")
             default_encoding = args.encoding
             fallback_encoding = None
@@ -289,7 +311,7 @@ class Command:
             if args.encoding.startswith("automatic;"):
                 first_encoding_semicolon_index = args.encoding.find(";")
                 default_encoding = args.encoding[:first_encoding_semicolon_index]
-                fallback_encoding = args.encoding[first_encoding_semicolon_index + 1 :]
+                fallback_encoding = args.encoding[first_encoding_semicolon_index + 1:]
                 encoding_to_check = ("fallback encoding", fallback_encoding)
             else:
                 default_encoding = args.encoding
@@ -310,6 +332,7 @@ class Command:
         self.set_default_encoding(default_encoding, "option --encoding")
         self.set_fallback_encoding(fallback_encoding, "option --encoding")
         self.set_folders_to_skip(args.folders_to_skip, "option --folders-to-skip")
+        self.set_excel_file(args.excel_file, "option --excel-file")
         self.set_generated_regexps(args.generated, "option --generated")
         self.set_has_duplicates(args.duplicates, "option --duplicates")
         self.set_is_verbose(args.verbose, "option --verbose")
@@ -321,11 +344,11 @@ class Command:
 
     def execute(self):
         _log.setLevel(logging.INFO if self.is_verbose else logging.WARNING)
-        with pygount.analysis.SourceScanner(
+        with pystats.analysis.SourceScanner(
             self.source_patterns, self.suffixes, self.folders_to_skip, self.names_to_skip
         ) as source_scanner:
             source_paths_and_groups_to_analyze = list(source_scanner.source_paths())
-            duplicate_pool = pygount.analysis.DuplicatePool() if not self.has_duplicates else None
+            duplicate_pool = pystats.analysis.DuplicatePool() if not self.has_duplicates else None
             writer_class = _OUTPUT_FORMAT_TO_WRITER_CLASS_MAP[self.output_format]
             is_stdout = self.output == "STDOUT"
             target_context_manager = (
@@ -338,7 +361,7 @@ class Command:
                     try:
                         for source_path, group in progress.track(source_paths_and_groups_to_analyze):
                             writer.add(
-                                pygount.analysis.SourceAnalysis.from_file(
+                                pystats.analysis.SourceAnalysis.from_file(
                                     source_path,
                                     group,
                                     self.default_encoding,
@@ -360,7 +383,7 @@ def pygount_command(arguments=None):
         result = 0
     except KeyboardInterrupt:  # pragma: no cover
         _log.error("interrupted as requested by user")
-    except (pygount.common.OptionError, OSError) as error:
+    except (pystats.common.OptionError, OSError) as error:
         _log.error(error)
     except Exception as error:
         _log.exception(error)

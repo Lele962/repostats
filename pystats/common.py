@@ -44,7 +44,6 @@ class OptionError(Error):
 
 def as_list(items_or_text: Union[str, Sequence[str]]) -> List[str]:
     if isinstance(items_or_text, str):
-        # TODO: Allow to specify comma (,) in text using '[,]'.
         result = [item.strip() for item in items_or_text.split(",") if item.strip() != ""]
     else:
         result = list(items_or_text)

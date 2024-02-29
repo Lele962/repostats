@@ -223,9 +223,7 @@ class Command:
         return self._excel_file
 
     def set_excel_file(self, glob_patterns_or_text, source=None):
-        self._excel_file = pystats.common.as_list(
-            glob_patterns_or_text
-        )
+        self._excel_file = glob_patterns_or_text
 
     @property
     def suffixes(self):
@@ -343,35 +341,49 @@ class Command:
         self.set_suffixes(args.suffix, "option --suffix")
 
     def execute(self):
-        _log.setLevel(logging.INFO if self.is_verbose else logging.WARNING)
-        with pystats.analysis.SourceScanner(
-            self.source_patterns, self.suffixes, self.folders_to_skip, self.names_to_skip
-        ) as source_scanner:
-            source_paths_and_groups_to_analyze = list(source_scanner.source_paths())
-            duplicate_pool = pystats.analysis.DuplicatePool() if not self.has_duplicates else None
-            writer_class = _OUTPUT_FORMAT_TO_WRITER_CLASS_MAP[self.output_format]
-            is_stdout = self.output == "STDOUT"
-            target_context_manager = (
-                contextlib.nullcontext(sys.stdout)
-                if is_stdout
-                else open(self.output, "w", encoding="utf-8", newline="")
-            )
-            with target_context_manager as target_file, writer_class(target_file) as writer:
-                with Progress(disable=not writer.has_to_track_progress, transient=True) as progress:
-                    try:
-                        for source_path, group in progress.track(source_paths_and_groups_to_analyze):
-                            writer.add(
-                                pystats.analysis.SourceAnalysis.from_file(
-                                    source_path,
-                                    group,
-                                    self.default_encoding,
-                                    self.fallback_encoding,
-                                    generated_regexes=self._generated_regexs,
-                                    duplicate_pool=duplicate_pool,
-                                )
-                            )
-                    finally:
-                        progress.stop()
+        if self.excel_file is not None:
+            import pandas as pd
+            excel_file_path = self.excel_file
+            df = pd.read_excel(excel_file_path, sheet_name='Sheet1', skiprows=0)
+            column_data = df.iloc[:, 1].tolist()
+            # TODO 要重新写入那个xlsx
+            for column_datum in column_data:
+                print(column_datum)
+
+
+                _log.setLevel(logging.INFO if self.is_verbose else logging.WARNING)
+                with pystats.analysis.SourceScanner(
+                    self.source_patterns, self.suffixes, self.folders_to_skip, self.names_to_skip
+                ) as source_scanner:
+                    source_paths_and_groups_to_analyze = list(source_scanner.source_paths())
+                    duplicate_pool = pystats.analysis.DuplicatePool() if not self.has_duplicates else None
+                    writer_class = _OUTPUT_FORMAT_TO_WRITER_CLASS_MAP[self.output_format]
+                    is_stdout = self.output == "STDOUT"
+                    target_context_manager = (
+                        contextlib.nullcontext(sys.stdout)
+                        if is_stdout
+                        else open(self.output, "w", encoding="utf-8", newline="")
+                    )
+                    with target_context_manager as target_file, writer_class(target_file) as writer:
+                        with Progress(disable=not writer.has_to_track_progress, transient=True) as progress:
+                            try:
+                                for source_path, group in progress.track(source_paths_and_groups_to_analyze):
+                                    writer.add(
+                                        pystats.analysis.SourceAnalysis.from_file(
+                                            source_path,
+                                            group,
+                                            self.default_encoding,
+                                            self.fallback_encoding,
+                                            generated_regexes=self._generated_regexs,
+                                            duplicate_pool=duplicate_pool,
+                                        )
+                                    )
+                            finally:
+                                progress.stop()
+
+    @source_patterns.setter
+    def source_patterns(self, value):
+        self._source_patterns = value
 
 
 def pygount_command(arguments=None):

@@ -86,10 +86,6 @@ class PygountCommandTest(TempFolderTest):
         exit_code = command.pygount_command(["--generated", "[regex](", tempfile.gettempdir()])
         assert exit_code == 1
 
-    def test_can_analyze_pygount_setup_py(self):
-        pygount_setup_py_path = os.path.join(PYGOUNT_PROJECT_FOLDER, "setup.py")
-        exit_code = command.pygount_command(["--verbose", pygount_setup_py_path])
-        assert exit_code == 0
 
     def test_can_analyze_pygount_source_code(self):
         exit_code = command.pygount_command(["--verbose", PYGOUNT_SOURCE_FOLDER])

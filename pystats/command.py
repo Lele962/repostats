@@ -346,14 +346,16 @@ class Command:
             excel_file_path = self.excel_file
             df = pd.read_excel(excel_file_path, sheet_name='Sheet1', skiprows=0)
             column_data = df.iloc[:, 1].tolist()
+
             # TODO 要重新写入那个xlsx
             for column_datum in column_data:
-                print(column_datum)
-
+                self.source_patterns = [column_datum]
+                print("column_datum: ", column_datum)
+                print("source_patterns: ", self.source_patterns)
 
                 _log.setLevel(logging.INFO if self.is_verbose else logging.WARNING)
                 with pystats.analysis.SourceScanner(
-                    self.source_patterns, self.suffixes, self.folders_to_skip, self.names_to_skip
+                        self.source_patterns, self.suffixes, self.folders_to_skip, self.names_to_skip
                 ) as source_scanner:
                     source_paths_and_groups_to_analyze = list(source_scanner.source_paths())
                     duplicate_pool = pystats.analysis.DuplicatePool() if not self.has_duplicates else None
@@ -380,6 +382,7 @@ class Command:
                                     )
                             finally:
                                 progress.stop()
+
 
     @source_patterns.setter
     def source_patterns(self, value):

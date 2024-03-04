@@ -7,6 +7,7 @@ import datetime
 import json
 import math
 import os
+import openpyxl
 from xml.etree import ElementTree
 
 from rich.console import Console
@@ -24,6 +25,7 @@ JSON_FORMAT_VERSION = "1.0.0"
 
 
 class BaseWriter:
+    static_instance = 2
     def __init__(self, target_stream):
         self._target_stream = target_stream
         try:
@@ -142,12 +144,12 @@ class SummaryWriter(BaseWriter):
     """
 
     _COLUMNS_WITH_JUSTIFY = (
-        ("Language", "left"),
-        ("Files", "right"),
+        ("Language", "center"),
+        ("Files", "center"),
         ("%", "right"),
-        ("Code", "right"),
+        ("Code", "center"),
         ("%", "right"),
-        ("Comment", "right"),
+        ("Comment", "center"),
         ("%", "right"),
     )
 
@@ -247,6 +249,65 @@ class JsonWriter(BaseWriter):
         }
         json.dump(json_map, self._target_stream)
 
+
+class XlsxWriter(BaseWriter):
+
+    _COLUMNS_WITH_JUSTIFY = (
+        ("Language", "center"),
+        ("Files", "center"),
+        ("%", "right"),
+        ("Code", "center"),
+        ("%", "right"),
+        ("Comment", "center"),
+        ("%", "right"),
+    )
+
+
+
+    def close(self):
+        super().close()
+        workbook = openpyxl.load_workbook('stats.xlsx')
+        sheet = workbook.active
+        x = 1
+        y = 3
+        tem_y = y+1
+        tem_x = x
+
+        table = Table()
+        for column, justify in self._COLUMNS_WITH_JUSTIFY:
+            table.add_column(column, justify=justify, overflow="fold")
+
+        language_summaries = sorted(self.project_summary.language_to_language_summary_map.values(), reverse=True)
+        for index, language_summary in enumerate(language_summaries, start=1):
+            table.add_row(
+                language_summary.language,
+                str(language_summary.file_count),
+                formatted_percentage(language_summary.file_percentage),
+                str(language_summary.code_count),
+                formatted_percentage(language_summary.code_percentage),
+                str(language_summary.documentation_count),
+                formatted_percentage(language_summary.documentation_percentage),
+                end_section=(index == len(language_summaries)),
+            )
+            combined_data = f"{language_summary.language}/ {language_summary.code_count}"
+            sheet.cell(row=BaseWriter.static_instance, column=tem_y, value=combined_data)
+            tem_y += 1
+        table.add_row(
+            "Sum",
+            str(self.project_summary.total_file_count),
+            formatted_percentage(100.0),
+            str(self.project_summary.total_code_count),
+            formatted_percentage(self.project_summary.total_code_percentage),
+            str(self.project_summary.total_documentation_count),
+            formatted_percentage(self.project_summary.total_documentation_percentage),
+        )
+        sheet.cell(row=BaseWriter.static_instance, column=y, value=self.project_summary.total_code_count)
+        workbook.save('stats.xlsx')
+        Console(file=self._target_stream, soft_wrap=True).print(table)
+        print(f"{BaseWriter.static_instance} : Done")
+        BaseWriter.static_instance += 1
+        print()
+        print()
 
 def digit_width(line_count: int) -> int:
     assert line_count >= 0

@@ -19,7 +19,7 @@ import pystats.common
 import pystats.write
 
 #: Valid formats for option --format.
-VALID_OUTPUT_FORMATS = ("cloc-xml", "json", "sloccount", "summary")
+VALID_OUTPUT_FORMATS = ("cloc-xml", "json", "sloccount", "summary", "xlsx")
 
 _DEFAULT_ENCODING = "automatic"
 _DEFAULT_OUTPUT_FORMAT = "sloccount"
@@ -64,6 +64,7 @@ _OUTPUT_FORMAT_TO_WRITER_CLASS_MAP = {
     "json": pystats.write.JsonWriter,
     "sloccount": pystats.write.LineWriter,
     "summary": pystats.write.SummaryWriter,
+    "xlsx": pystats.write.XlsxWriter,
 }
 assert set(VALID_OUTPUT_FORMATS) == set(_OUTPUT_FORMAT_TO_WRITER_CLASS_MAP.keys())
 
@@ -382,7 +383,6 @@ class Command:
                                     )
                             finally:
                                 progress.stop()
-
 
     @source_patterns.setter
     def source_patterns(self, value):

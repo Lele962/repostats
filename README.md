@@ -90,7 +90,7 @@ For more information and examples read the documentation chapter on
 ## Contributions
 
 To report bugs, visit the
-[issue tracker](https://github.com/roskakori/pygount/issues).
+[issue tracker][https://github.com/roskakori/pygount/issue](https://github.com/Lele962/repostats/issues).
 
 In case you want to play with the source code or contribute improvements, see
 [CONTRIBUTING](https://pygount.readthedocs.io/en/latest/contributing.html).

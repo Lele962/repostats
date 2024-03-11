@@ -5,8 +5,6 @@ count the number of source code lines in it. It is similar to tools like
 [sloccount](https://www.dwheeler.com/sloccount/) and
 [cloc](https://github.com/AlDanial/cloc) 
 
-The name is a combination of pygments and count.
-
 Pystats is open source and distributed under the
 [BSD license](https://opensource.org/licenses/BSD-3-Clause). The source
 code is available from [https://github.com/roskakori/pygount](https://github.com/Lele962/repostats).

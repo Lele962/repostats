@@ -3,16 +3,13 @@
 Pygount is a command line tool to scan folders for source code files and
 count the number of source code lines in it. It is similar to tools like
 [sloccount](https://www.dwheeler.com/sloccount/) and
-[cloc](https://github.com/AlDanial/cloc) but uses the
-[pygments](https://pygments.org/)
-package to analyze the source code and consequently can analyze any
-[programming language supported by pygments](https://pygments.org/languages/).
+[cloc](https://github.com/AlDanial/cloc) 
 
 The name is a combination of pygments and count.
 
-Pygount is open source and distributed under the
+Pystats is open source and distributed under the
 [BSD license](https://opensource.org/licenses/BSD-3-Clause). The source
-code is available from https://github.com/roskakori/pygount.
+code is available from [https://github.com/roskakori/pygount](https://github.com/Lele962/repostats).
 
 ## Quickstart
 
